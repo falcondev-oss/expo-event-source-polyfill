@@ -1,0 +1,56 @@
+{
+  "name": "@falcondev-oss/expo-event-source-polyfill",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A polyfill for the EventSource API in Expo using `expo/fetch`",
+  "license": "Apache-2.0",
+  "repository": "github:falcondev-oss/expo-event-source-polyfill",
+  "bugs": {
+    "url": "https://github.com/falcondev-oss/expo-event-source-polyfill/issues"
+  },
+  "keywords": [
+    "expo",
+    "react-native",
+    "eventsource",
+    "polyfill",
+    "sse",
+    "server-sent-events",
+    "typescript"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": "22",
+    "pnpm": "10"
+  },
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint --cache . && prettier --check --cache .",
+    "lint:ci": "eslint --cache --cache-strategy content . && prettier --check --cache --cache-strategy content .",
+    "lint:fix": "eslint --fix --cache . && prettier --write --cache .",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "expo": ">=52"
+  },
+  "devDependencies": {
+    "@louishaftmann/eslint-config": "^4.1.0",
+    "@louishaftmann/prettier-config": "^4.1.0",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  },
+  "changelogithub": {
+    "extends": "gh:falcondev-it/configs/changelogithub"
+  }
+}
