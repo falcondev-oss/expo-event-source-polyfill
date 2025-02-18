@@ -7,6 +7,11 @@ export type MessageEvent = {
   type: string
 }
 
+export interface EventSourceOptions {
+  withCredentials?: boolean
+  headers?: Record<string, string>
+}
+
 export class ExpoEventSource {
   static CONNECTING = 0
   static OPEN = 1
@@ -20,9 +25,11 @@ export class ExpoEventSource {
   private handlers = new Map<string, Set<(event: MessageEvent) => void>>()
   private decoder = new TextDecoder()
   private reconnectionTimeout: number | null = null
+  private opts: EventSourceOptions | undefined
 
-  constructor(url: string) {
+  constructor(url: string, opts?: EventSourceOptions) {
     this.url = url
+    this.opts = opts
 
     void this.connect()
   }
@@ -35,6 +42,7 @@ export class ExpoEventSource {
       const headers: Record<string, string> = {
         'Accept': 'text/event-stream',
         'Cache-Control': 'no-cache',
+        ...this.opts?.headers,
       }
 
       if (this.lastEventId) {
@@ -45,6 +53,7 @@ export class ExpoEventSource {
         method: 'GET',
         headers,
         signal: this.abortController.signal,
+        credentials: this.opts?.withCredentials ? 'include' : undefined,
       })
 
       if (!response.ok) {
