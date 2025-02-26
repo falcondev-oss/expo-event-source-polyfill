@@ -52,5 +52,10 @@
   },
   "changelogithub": {
     "extends": "gh:falcondev-it/configs/changelogithub"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

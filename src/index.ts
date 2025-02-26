@@ -38,7 +38,7 @@ export class ExpoEventSource {
   }
 
   private debugLog(message: string, args?: any) {
-    this.opts?.debugLog?.('[EventSource] ' + message, args)
+    this.opts?.debugLog?.(`[EventSource] ${message}`, args)
   }
 
   private async connect() {
@@ -85,7 +85,7 @@ export class ExpoEventSource {
       const contentType = response.headers.get('Content-Type')
       if (!contentType || !contentType.includes('text/event-stream')) {
         this.debugLog('Invalid Content-Type', contentType)
-        throw new Error('Invalid Content-Type: ' + contentType)
+        throw new Error(`Invalid Content-Type: ${contentType}`)
       }
 
       this.debugLog('Connected', response)
@@ -170,7 +170,7 @@ export class ExpoEventSource {
           break
         }
         case 'id': {
-          if (value.indexOf('\0') === -1) this.lastEventId = value || null
+          if (!value.includes('\0')) this.lastEventId = value || null
           break
         }
         case 'retry': {

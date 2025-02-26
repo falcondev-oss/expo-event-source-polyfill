@@ -16,13 +16,13 @@ npm install @falcondev-oss/expo-event-source-polyfill
 Create an `index.js` file in the root of your project with the following content:
 
 ```javascript
+import { ExpoEventSource } from '@falcondev-oss/expo-event-source-polyfill'
 // @ts-expect-error this is used internally and the recommended way to polyfill global objects
 import { polyfillGlobal } from 'react-native/Libraries/Utilities/PolyfillFunctions'
-import { ExpoEventSource } from '@falcondev-oss/expo-event-source-polyfill'
-
-polyfillGlobal('EventSource', () => ExpoEventSource)
 
 import 'expo-router/entry'
+
+polyfillGlobal('EventSource', () => ExpoEventSource)
 ```
 
 Then, add the following to your `package.json`:
