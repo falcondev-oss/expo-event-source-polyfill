@@ -5,6 +5,8 @@ export type MessageEvent = {
   origin?: string
   lastEventId?: string
   type: string
+  source?: unknown
+  ports?: unknown[]
 }
 
 export interface EventSourceOptions {
@@ -19,7 +21,7 @@ export class ExpoEventSource {
   static CLOSED = 2
 
   url: string
-  readyState: number = EventSource.CONNECTING
+  readyState: number = ExpoEventSource.CONNECTING
   private abortController: AbortController | null = null
   private lastEventId: string | null = null
   private cache = ''
@@ -40,7 +42,7 @@ export class ExpoEventSource {
   }
 
   private async connect() {
-    if (this.readyState === EventSource.CLOSED) {
+    if (this.readyState === ExpoEventSource.CLOSED) {
       this.debugLog('EventSource is closed, not reconnecting')
       return
     }
@@ -74,10 +76,22 @@ export class ExpoEventSource {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
+      if (response.status === 204) {
+        this.readyState = ExpoEventSource.CLOSED
+        this.dispatchEvent('error', { type: 'error' })
+        return
+      }
+
+      const contentType = response.headers.get('Content-Type')
+      if (!contentType || !contentType.includes('text/event-stream')) {
+        this.debugLog('Invalid Content-Type', contentType)
+        throw new Error('Invalid Content-Type: ' + contentType)
+      }
+
       this.debugLog('Connected', response)
 
-      if (this.readyState === EventSource.CONNECTING) {
-        this.readyState = EventSource.OPEN
+      if (this.readyState === ExpoEventSource.CONNECTING) {
+        this.readyState = ExpoEventSource.OPEN
         this.dispatchEvent('open', { type: 'open' })
       }
 
@@ -98,8 +112,8 @@ export class ExpoEventSource {
       }
     } catch (err) {
       this.debugLog('Connection error', err)
-      if (this.readyState !== EventSource.CLOSED) {
-        this.readyState = EventSource.CONNECTING
+      if (this.readyState !== ExpoEventSource.CLOSED) {
+        this.readyState = ExpoEventSource.CONNECTING
         this.dispatchEvent('error', { type: 'error', data: (err as Error).message })
         this.scheduleReconnectionAfter(500)
       }
@@ -125,8 +139,10 @@ export class ExpoEventSource {
           this.dispatchEvent(eventType, {
             data: data.join('\n'),
             lastEventId: this.lastEventId ?? undefined,
-            origin: this.url,
+            origin: new URL(this.url).origin,
             type: eventType,
+            source: null,
+            ports: [],
           })
           data = []
           eventType = 'message'
@@ -150,11 +166,11 @@ export class ExpoEventSource {
           break
         }
         case 'data': {
-          data.push(value)
+          data.push(value.endsWith('\n') ? value.slice(0, -1) : value)
           break
         }
         case 'id': {
-          this.lastEventId = value || null
+          if (value.indexOf('\0') === -1) this.lastEventId = value || null
           break
         }
         case 'retry': {
@@ -204,7 +220,7 @@ export class ExpoEventSource {
   }
 
   close() {
-    this.readyState = EventSource.CLOSED
+    this.readyState = ExpoEventSource.CLOSED
     if (this.abortController) {
       this.abortController.abort()
     }
