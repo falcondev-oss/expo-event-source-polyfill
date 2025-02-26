@@ -10,6 +10,7 @@ export type MessageEvent = {
 export interface EventSourceOptions {
   withCredentials?: boolean
   headers?: Record<string, string>
+  debugLog?: (message: string, args?: any) => void
 }
 
 export class ExpoEventSource {
@@ -34,8 +35,15 @@ export class ExpoEventSource {
     void this.connect()
   }
 
+  private debugLog(message: string, args?: any) {
+    this.opts?.debugLog?.('[EventSource] ' + message, args)
+  }
+
   private async connect() {
-    if (this.readyState === EventSource.CLOSED) return
+    if (this.readyState === EventSource.CLOSED) {
+      this.debugLog('EventSource is closed, not reconnecting')
+      return
+    }
 
     try {
       this.abortController = new AbortController()
@@ -49,6 +57,11 @@ export class ExpoEventSource {
         headers['Last-Event-ID'] = this.lastEventId
       }
 
+      this.debugLog('Connecting', {
+        url: this.url,
+        ...headers,
+      })
+
       const response = await expoFetch(this.url, {
         method: 'GET',
         headers,
@@ -57,15 +70,21 @@ export class ExpoEventSource {
       })
 
       if (!response.ok) {
+        this.debugLog('HTTP error', response)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
+
+      this.debugLog('Connected', response)
 
       if (this.readyState === EventSource.CONNECTING) {
         this.readyState = EventSource.OPEN
         this.dispatchEvent('open', { type: 'open' })
       }
 
-      if (!response.body) throw new Error('HTTP response body is undefined')
+      if (!response.body) {
+        this.debugLog('HTTP response body is undefined')
+        throw new Error('HTTP response body is undefined')
+      }
 
       const reader = response.body.getReader()
 
@@ -78,6 +97,7 @@ export class ExpoEventSource {
         this.processChunk(chunk)
       }
     } catch (err) {
+      this.debugLog('Connection error', err)
       if (this.readyState !== EventSource.CLOSED) {
         this.readyState = EventSource.CONNECTING
         this.dispatchEvent('error', { type: 'error', data: (err as Error).message })
@@ -122,6 +142,8 @@ export class ExpoEventSource {
 
       if (field === 'data' && value === '') continue
 
+      this.debugLog('Processing line', { field, value })
+
       switch (field) {
         case 'event': {
           eventType = value
@@ -150,6 +172,7 @@ export class ExpoEventSource {
   }
 
   private scheduleReconnectionAfter(ms: number) {
+    this.debugLog('Scheduling reconnection after', ms)
     if (this.reconnectionTimeout) clearTimeout(this.reconnectionTimeout)
 
     this.reconnectionTimeout = setTimeout(() => {
