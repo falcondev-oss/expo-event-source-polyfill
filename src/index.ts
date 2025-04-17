@@ -1,4 +1,5 @@
-import { fetch as expoFetch, type FetchRequestInit } from 'expo/fetch'
+import type { FetchRequestInit } from 'expo/fetch'
+import { fetch as expoFetch } from 'expo/fetch'
 
 export type MessageEvent = {
   data?: unknown
@@ -68,7 +69,7 @@ export class ExpoEventSource {
         method: 'GET',
         headers,
         signal: this.abortController.signal,
-        credentials: this.opts?.credentials
+        credentials: this.opts?.credentials,
       })
 
       if (!response.ok) {
