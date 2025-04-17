@@ -1,4 +1,4 @@
-import { fetch as expoFetch } from 'expo/fetch'
+import { fetch as expoFetch, type FetchRequestInit } from 'expo/fetch'
 
 export type MessageEvent = {
   data?: unknown
@@ -10,7 +10,7 @@ export type MessageEvent = {
 }
 
 export interface EventSourceOptions {
-  withCredentials?: boolean
+  credentials?: FetchRequestInit['credentials']
   headers?: Record<string, string>
   debugLog?: (message: string, args?: any) => void
 }
@@ -68,7 +68,7 @@ export class ExpoEventSource {
         method: 'GET',
         headers,
         signal: this.abortController.signal,
-        credentials: this.opts?.withCredentials ? 'include' : undefined,
+        credentials: this.opts?.credentials
       })
 
       if (!response.ok) {
