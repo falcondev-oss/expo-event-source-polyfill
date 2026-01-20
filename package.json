@@ -29,11 +29,11 @@
     "dist"
   ],
   "engines": {
-    "node": "22",
+    "node": "24",
     "pnpm": "10"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "lint": "eslint --cache . && prettier --check --cache .",
     "lint:ci": "eslint --cache --cache-strategy content . && prettier --check --cache --cache-strategy content .",
     "lint:fix": "eslint --fix --cache . && prettier --write --cache .",
@@ -43,19 +43,20 @@
     "expo": ">=52"
   },
   "devDependencies": {
-    "@louishaftmann/eslint-config": "^4.2.0",
-    "@louishaftmann/prettier-config": "^4.2.0",
-    "eslint": "^9.24.0",
-    "prettier": "^3.5.3",
-    "tsup": "^8.4.0",
-    "typescript": "^5.8.3"
+    "@falcondev-oss/configs": "^5.0.2",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.0",
+    "tsdown": "0.20.0-beta.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "changelogithub": {
     "extends": "gh:falcondev-it/configs/changelogithub"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "unrs-resolver"
     ]
   }
 }

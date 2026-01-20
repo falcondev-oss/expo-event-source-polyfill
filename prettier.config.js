@@ -1,1 +1,1 @@
-export { default } from '@louishaftmann/prettier-config'
+export { default } from '@falcondev-oss/configs/prettier'
