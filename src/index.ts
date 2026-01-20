@@ -24,12 +24,15 @@ export class ExpoEventSource {
   url: string
   readyState: number = ExpoEventSource.CONNECTING
   private abortController: AbortController | null = null
-  private lastEventId: string | null = null
+  lastEventId: string | null = null
   private cache = ''
   private handlers = new Map<string, Set<(event: MessageEvent) => void>>()
   private decoder = new TextDecoder()
   private reconnectionTimeout: number | null = null
   private opts: EventSourceOptions | undefined
+
+  private currentEventData: string[] = []
+  private currentEventType = 'message'
 
   constructor(url: string, opts?: EventSourceOptions) {
     this.url = url
@@ -124,29 +127,23 @@ export class ExpoEventSource {
   private processChunk(chunk: string) {
     this.cache += chunk
     const lines = this.cache.split('\n')
+    this.cache = lines.pop() ?? ''
 
-    // Process all complete lines except the last one (which might be incomplete)
-    const incompleteLineMayExist = this.cache.at(-1) !== '\n'
-    const linesToProcess = incompleteLineMayExist ? lines.slice(0, -1) : lines
-
-    let eventType = 'message'
-    let data = []
-
-    for (const line of linesToProcess) {
+    for (const line of lines) {
       const trimmedLine = line.trim()
 
       if (!trimmedLine) {
-        if (data.length > 0) {
-          this.dispatchEvent(eventType, {
-            data: data.join('\n'),
+        if (this.currentEventData.length > 0) {
+          this.dispatchEvent(this.currentEventType, {
+            data: this.currentEventData.join('\n'),
             lastEventId: this.lastEventId ?? undefined,
             origin: new URL(this.url).origin,
-            type: eventType,
+            type: this.currentEventType,
             source: null,
             ports: [],
           })
-          data = []
-          eventType = 'message'
+          this.currentEventData = []
+          this.currentEventType = 'message'
         }
         continue
       }
@@ -163,11 +160,11 @@ export class ExpoEventSource {
 
       switch (field) {
         case 'event': {
-          eventType = value
+          this.currentEventType = value
           break
         }
         case 'data': {
-          data.push(value.endsWith('\n') ? value.slice(0, -1) : value)
+          this.currentEventData.push(value.endsWith('\n') ? value.slice(0, -1) : value)
           break
         }
         case 'id': {
@@ -183,9 +180,6 @@ export class ExpoEventSource {
         }
       }
     }
-
-    // Update cache to only contain the last incomplete line (if any)
-    this.cache = incompleteLineMayExist ? (lines.at(-1) ?? '') : ''
   }
 
   private scheduleReconnectionAfter(ms: number) {
