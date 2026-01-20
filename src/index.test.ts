@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ExpoEventSource } from './index'
 
 const mockFetch = vi.fn()
 
 vi.mock('expo/fetch', () => ({
+  // eslint-disable-next-line ts/no-unsafe-return, ts/no-unsafe-argument
   fetch: (...args: any[]) => mockFetch(...args),
 }))
 
@@ -18,12 +19,12 @@ function createMockStream() {
 
   return {
     stream,
-    push: (text: string) => controller.enqueue(encoder.encode(text)),
+    enqueue: (text: string) => controller.enqueue(encoder.encode(text)),
     close: () => controller.close(),
   }
 }
 
-describe('ExpoEventSource', () => {
+describe('expoEventSource', () => {
   let mockStream: ReturnType<typeof createMockStream>
 
   beforeEach(() => {
@@ -50,7 +51,7 @@ describe('ExpoEventSource', () => {
     vi.useRealTimers()
   })
 
-  it('connects and sets readyState to OPEN', async () => {
+  test('connects and sets readyState to OPEN', async () => {
     const es = new ExpoEventSource('http://test.com')
     const onOpen = vi.fn()
     es.addEventListener('open', onOpen)
@@ -59,7 +60,7 @@ describe('ExpoEventSource', () => {
       expect(mockFetch).toHaveBeenCalledWith('http://test.com', expect.anything())
     })
 
-    mockStream.push(':ok\n\n')
+    mockStream.enqueue(':ok\n\n')
 
     await vi.waitFor(() => {
       expect(es.readyState).toBe(1)
@@ -67,14 +68,14 @@ describe('ExpoEventSource', () => {
     })
   })
 
-  it('parses a simple data message', async () => {
+  test('parses a simple data message', async () => {
     const es = new ExpoEventSource('http://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push('data: hello world\n\n')
+    mockStream.enqueue('data: hello world\n\n')
 
     await vi.waitFor(() => {
       expect(onMessage).toHaveBeenCalledWith(
@@ -87,16 +88,16 @@ describe('ExpoEventSource', () => {
     })
   })
 
-  it('handles packet fragmentation (The "broken device" fix)', async () => {
+  test('handles packet fragmentation (The "broken device" fix)', async () => {
     const es = new ExpoEventSource('http://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push('data: part 1 ')
-    mockStream.push('and part 2\n')
-    mockStream.push('\n')
+    mockStream.enqueue('data: part 1 ')
+    mockStream.enqueue('and part 2\n')
+    mockStream.enqueue('\n')
 
     await vi.waitFor(() => {
       expect(onMessage).toHaveBeenCalledWith(
@@ -107,15 +108,15 @@ describe('ExpoEventSource', () => {
     })
   })
 
-  it('handles multi-line data', async () => {
+  test('handles multi-line data', async () => {
     const es = new ExpoEventSource('http://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push('data: line 1\n')
-    mockStream.push('data: line 2\n\n')
+    mockStream.enqueue('data: line 1\n')
+    mockStream.enqueue('data: line 2\n\n')
 
     await vi.waitFor(() => {
       expect(onMessage).toHaveBeenCalledWith(
@@ -126,15 +127,15 @@ describe('ExpoEventSource', () => {
     })
   })
 
-  it('handles custom event types', async () => {
+  test('handles custom event types', async () => {
     const es = new ExpoEventSource('http://test.com')
     const onCustom = vi.fn()
     es.addEventListener('update', onCustom)
 
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push('event: update\n')
-    mockStream.push('data: payload\n\n')
+    mockStream.enqueue('event: update\n')
+    mockStream.enqueue('data: payload\n\n')
 
     await vi.waitFor(() => {
       expect(onCustom).toHaveBeenCalledWith(
@@ -146,15 +147,15 @@ describe('ExpoEventSource', () => {
     })
   })
 
-  it('ignores comments (lines starting with :)', async () => {
+  test('ignores comments (lines starting with :)', async () => {
     const es = new ExpoEventSource('http://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push(': this is a comment\n')
-    mockStream.push('data: real data\n\n')
+    mockStream.enqueue(': this is a comment\n')
+    mockStream.enqueue('data: real data\n\n')
 
     await vi.waitFor(() => {
       expect(onMessage).toHaveBeenCalledTimes(1)
@@ -166,19 +167,19 @@ describe('ExpoEventSource', () => {
     })
   })
 
-  it('respects Last-Event-ID', async () => {
+  test('respects Last-Event-ID', async () => {
     const es = new ExpoEventSource('http://test.com')
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push('id: 123\n')
-    mockStream.push('data: test\n\n')
+    mockStream.enqueue('id: 123\n')
+    mockStream.enqueue('data: test\n\n')
 
     await vi.waitFor(() => {
       expect(es.lastEventId).toBe('123')
     })
   })
 
-  it('reconnects automatically on error', async () => {
+  test('reconnects automatically on error', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network Error'))
 
     mockFetch.mockResolvedValueOnce({
@@ -199,14 +200,14 @@ describe('ExpoEventSource', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
-  it('handles "retry" field', async () => {
+  test('handles "retry" field', async () => {
     const es = new ExpoEventSource('http://test.com')
 
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
-    mockStream.push('retry: 5000\n\n')
+    mockStream.enqueue('retry: 5000\n\n')
 
-    // @ts-ignore
+    // @ts-expect-error accessing private field for testing
     await es.connect()
   })
 })
