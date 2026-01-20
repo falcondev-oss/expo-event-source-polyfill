@@ -20,7 +20,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "import": "./dist/index.js",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     }
   },
