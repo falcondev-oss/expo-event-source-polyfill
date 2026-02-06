@@ -119,7 +119,7 @@ export class ExpoEventSource {
       if (this.readyState !== ExpoEventSource.CLOSED) {
         this.readyState = ExpoEventSource.CONNECTING
         this.dispatchEvent('error', { type: 'error', data: (err as Error).message })
-        this.scheduleReconnectionAfter(500)
+        this.scheduleReconnectionAfter(5000)
       }
     }
   }
