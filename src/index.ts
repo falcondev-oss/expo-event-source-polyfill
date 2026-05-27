@@ -143,8 +143,8 @@ export class ExpoEventSource {
             ports: [],
           })
           this.currentEventData = []
-          this.currentEventType = 'message'
         }
+        this.currentEventType = 'message'
         continue
       }
 

@@ -200,6 +200,32 @@ describe('expoEventSource', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
+  test('event type resets to "message" after data-less event (ping heartbeat)', async () => {
+    const es = new ExpoEventSource('http://test.com')
+    const onMessage = vi.fn()
+    const onPing = vi.fn()
+    es.addEventListener('message', onMessage)
+    es.addEventListener('ping', onPing)
+
+    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
+
+    // Server sends a data-less ping heartbeat, then a real message.
+    // The ping's empty-line must reset currentEventType so the next
+    // event is not incorrectly dispatched as "ping".
+    mockStream.enqueue('event: ping\n')
+    mockStream.enqueue('\n')
+    mockStream.enqueue('data: hello\n')
+    mockStream.enqueue('\n')
+
+    await vi.waitFor(() => {
+      expect(onPing).not.toHaveBeenCalled()
+      expect(onMessage).toHaveBeenCalledTimes(1)
+      expect(onMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'message', data: 'hello' }),
+      )
+    })
+  })
+
   test('handles "retry" field', async () => {
     const es = new ExpoEventSource('http://test.com')
 
