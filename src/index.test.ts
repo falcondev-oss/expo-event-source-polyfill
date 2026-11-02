@@ -226,6 +226,20 @@ describe('expoEventSource', () => {
     })
   })
 
+  test('dispatches an event with an empty data line (tRPC ping)', async () => {
+    const es = new ExpoEventSource('http://test.com')
+    const onPing = vi.fn()
+    es.addEventListener('ping', onPing)
+
+    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
+
+    mockStream.enqueue('event: ping\ndata: \n\n')
+
+    await vi.waitFor(() => {
+      expect(onPing).toHaveBeenCalledWith(expect.objectContaining({ type: 'ping', data: '' }))
+    })
+  })
+
   test('handles "retry" field', async () => {
     const es = new ExpoEventSource('http://test.com')
 

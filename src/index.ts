@@ -154,8 +154,6 @@ export class ExpoEventSource {
       const field = trimmedLine.slice(0, colonIndex)
       const value = trimmedLine.slice(colonIndex + 1).trim()
 
-      if (field === 'data' && value === '') continue
-
       this.debugLog('Processing line', { field, value })
 
       switch (field) {
