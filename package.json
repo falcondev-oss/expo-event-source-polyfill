@@ -29,26 +29,33 @@
     "dist"
   ],
   "engines": {
-    "node": "24",
-    "pnpm": "11"
+    "node": "26"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.16.1",
+      "onFail": "warn"
+    }
   },
   "scripts": {
     "build": "tsdown",
     "lint": "eslint --cache . && prettier --check --cache .",
     "lint:ci": "eslint --cache --cache-strategy content . && prettier --check --cache --cache-strategy content .",
     "lint:fix": "eslint --fix --cache . && prettier --write --cache .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "expo": ">=52"
   },
   "devDependencies": {
-    "@falcondev-oss/configs": "^5.0.2",
-    "eslint": "^9.39.2",
-    "prettier": "^3.8.3",
-    "tsdown": "0.22.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.7"
+    "@falcondev-oss/configs": "^6.0.6",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "tsdown": "0.23.4",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
   },
   "changelogithub": {
     "extends": "gh:falcondev-it/configs/changelogithub"

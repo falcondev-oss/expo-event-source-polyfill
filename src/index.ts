@@ -16,23 +16,31 @@ export interface EventSourceOptions {
   debugLog?: (message: string, args?: any) => void
 }
 
+type EventHandler = (event: MessageEvent) => void
+
 export class ExpoEventSource {
   static CONNECTING = 0
   static OPEN = 1
   static CLOSED = 2
 
-  url: string
-  readyState: number = ExpoEventSource.CONNECTING
   private abortController: AbortController | null = null
-  lastEventId: string | null = null
-  private cache = ''
-  private handlers = new Map<string, Set<(event: MessageEvent) => void>>()
-  private decoder = new TextDecoder()
-  private reconnectionTimeout: number | null = null
+  private handlers = new Map<string, Set<EventHandler>>()
+  private reconnectionTimeout: ReturnType<typeof setTimeout> | null = null
+  private reconnectionDelay = 5000
   private opts: EventSourceOptions | undefined
 
-  private currentEventData: string[] = []
-  private currentEventType = 'message'
+  private decoder = new TextDecoder()
+  private buffer = ''
+  private dataBuffer = ''
+  private eventTypeBuffer = ''
+  private lastEventIdBuffer = ''
+
+  url: string
+  readyState: number = ExpoEventSource.CONNECTING
+  lastEventId = ''
+  onopen: EventHandler | null = null
+  onmessage: EventHandler | null = null
+  onerror: EventHandler | null = null
 
   constructor(url: string, opts?: EventSourceOptions) {
     this.url = url
@@ -50,6 +58,11 @@ export class ExpoEventSource {
       this.debugLog('EventSource is closed, not reconnecting')
       return
     }
+
+    this.decoder = new TextDecoder()
+    this.buffer = ''
+    this.dataBuffer = ''
+    this.eventTypeBuffer = ''
 
     try {
       this.abortController = new AbortController()
@@ -75,111 +88,119 @@ export class ExpoEventSource {
         credentials: this.opts?.credentials,
       })
 
-      if (!response.ok) {
-        this.debugLog('HTTP error', response)
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      if (response.status === 204) {
-        this.readyState = ExpoEventSource.CLOSED
-        this.dispatchEvent('error', { type: 'error' })
+      const contentType = response.headers.get('Content-Type')
+      const mimeType = contentType?.split(';', 1)[0]?.trim().toLowerCase()
+      if (response.status !== 200 || mimeType !== 'text/event-stream' || !response.body) {
+        this.debugLog('Failing the connection', { status: response.status, contentType })
+        this.failConnection(`HTTP ${response.status}, Content-Type ${contentType}`)
         return
       }
 
-      const contentType = response.headers.get('Content-Type')
-      if (!contentType || !contentType.includes('text/event-stream')) {
-        this.debugLog('Invalid Content-Type', contentType)
-        throw new Error(`Invalid Content-Type: ${contentType}`)
-      }
-
       this.debugLog('Connected', response)
-
-      if (this.readyState === ExpoEventSource.CONNECTING) {
-        this.readyState = ExpoEventSource.OPEN
-        this.dispatchEvent('open', { type: 'open' })
-      }
-
-      if (!response.body) {
-        this.debugLog('HTTP response body is undefined')
-        throw new Error('HTTP response body is undefined')
-      }
+      this.readyState = ExpoEventSource.OPEN
+      this.dispatchEvent('open', { type: 'open' })
 
       const reader = response.body.getReader()
 
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
-
-        // value is a Uint8Array
-        const chunk = this.decoder.decode(value, { stream: true })
-        this.processChunk(chunk)
+        this.processChunk(this.decoder.decode(value, { stream: true }))
       }
+
+      this.debugLog('Stream ended')
+      this.reestablishConnection('Stream ended')
     } catch (err) {
       this.debugLog('Connection error', err)
-      if (this.readyState !== ExpoEventSource.CLOSED) {
-        this.readyState = ExpoEventSource.CONNECTING
-        this.dispatchEvent('error', { type: 'error', data: (err as Error).message })
-        this.scheduleReconnectionAfter(5000)
+      this.reestablishConnection((err as Error).message)
+    }
+  }
+
+  private failConnection(reason: string) {
+    if (this.readyState === ExpoEventSource.CLOSED) return
+    this.readyState = ExpoEventSource.CLOSED
+    this.dispatchEvent('error', { type: 'error', data: reason })
+  }
+
+  private reestablishConnection(reason: string) {
+    if (this.readyState === ExpoEventSource.CLOSED) return
+    this.readyState = ExpoEventSource.CONNECTING
+    this.dispatchEvent('error', { type: 'error', data: reason })
+    this.scheduleReconnectionAfter(this.reconnectionDelay)
+  }
+
+  private processChunk(chunk: string) {
+    const buffer = this.buffer + chunk
+    let lineStart = 0
+
+    for (let i = 0; i < buffer.length; i++) {
+      const char = buffer[i]
+      if (char !== '\r' && char !== '\n') continue
+      if (char === '\r' && i === buffer.length - 1) break
+
+      this.processLine(buffer.slice(lineStart, i))
+      if (char === '\r' && buffer[i + 1] === '\n') i++
+      lineStart = i + 1
+    }
+
+    this.buffer = buffer.slice(lineStart)
+  }
+
+  private processLine(line: string) {
+    if (line === '') {
+      this.dispatchBufferedEvent()
+      return
+    }
+    if (line.startsWith(':')) return
+
+    const colonIndex = line.indexOf(':')
+    const field = colonIndex === -1 ? line : line.slice(0, colonIndex)
+    let value = colonIndex === -1 ? '' : line.slice(colonIndex + 1)
+    if (value.startsWith(' ')) value = value.slice(1)
+
+    this.debugLog('Processing line', { field, value })
+
+    switch (field) {
+      case 'event': {
+        this.eventTypeBuffer = value
+        break
+      }
+      case 'data': {
+        this.dataBuffer += `${value}\n`
+        break
+      }
+      case 'id': {
+        if (!value.includes('\0')) this.lastEventIdBuffer = value
+        break
+      }
+      case 'retry': {
+        if (/^\d+$/.test(value)) this.reconnectionDelay = Number(value)
+        break
       }
     }
   }
 
-  private processChunk(chunk: string) {
-    this.cache += chunk
-    const lines = this.cache.split('\n')
-    this.cache = lines.pop() ?? ''
+  private dispatchBufferedEvent() {
+    this.lastEventId = this.lastEventIdBuffer
 
-    for (const line of lines) {
-      const trimmedLine = line.trim()
-
-      if (!trimmedLine) {
-        if (this.currentEventData.length > 0) {
-          this.dispatchEvent(this.currentEventType, {
-            data: this.currentEventData.join('\n'),
-            lastEventId: this.lastEventId ?? undefined,
-            origin: new URL(this.url).origin,
-            type: this.currentEventType,
-            source: null,
-            ports: [],
-          })
-          this.currentEventData = []
-        }
-        this.currentEventType = 'message'
-        continue
-      }
-
-      const colonIndex = trimmedLine.indexOf(':')
-      if (colonIndex === -1) continue
-
-      const field = trimmedLine.slice(0, colonIndex)
-      const value = trimmedLine.slice(colonIndex + 1).trim()
-
-      if (field === 'data' && value === '') continue
-
-      this.debugLog('Processing line', { field, value })
-
-      switch (field) {
-        case 'event': {
-          this.currentEventType = value
-          break
-        }
-        case 'data': {
-          this.currentEventData.push(value.endsWith('\n') ? value.slice(0, -1) : value)
-          break
-        }
-        case 'id': {
-          if (!value.includes('\0')) this.lastEventId = value || null
-          break
-        }
-        case 'retry': {
-          const retry = Number.parseInt(value)
-          if (!Number.isNaN(retry)) {
-            this.scheduleReconnectionAfter(retry)
-          }
-          break
-        }
-      }
+    if (this.dataBuffer === '') {
+      this.eventTypeBuffer = ''
+      return
     }
+
+    const type = this.eventTypeBuffer || 'message'
+    const data = this.dataBuffer.slice(0, -1)
+    this.dataBuffer = ''
+    this.eventTypeBuffer = ''
+
+    this.dispatchEvent(type, {
+      type,
+      data,
+      lastEventId: this.lastEventId,
+      origin: new URL(this.url).origin,
+      source: null,
+      ports: [],
+    })
   }
 
   private scheduleReconnectionAfter(ms: number) {
@@ -187,37 +208,43 @@ export class ExpoEventSource {
     if (this.reconnectionTimeout) clearTimeout(this.reconnectionTimeout)
 
     this.reconnectionTimeout = setTimeout(() => {
+      this.reconnectionTimeout = null
       void this.connect()
     }, ms)
   }
 
-  addEventListener(type: string, handler: (event: MessageEvent) => void) {
+  addEventListener(type: string, handler: EventHandler) {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set())
     }
     this.handlers.get(type)!.add(handler)
   }
 
-  removeEventListener(type: string, handler: (event: MessageEvent) => void) {
-    const handlers = this.handlers.get(type)
-    if (handlers) {
-      handlers.delete(handler)
-    }
+  removeEventListener(type: string, handler: EventHandler) {
+    this.handlers.get(type)?.delete(handler)
   }
 
   dispatchEvent(type: string, event: MessageEvent) {
-    const handlers = this.handlers.get(type)
-    if (handlers) {
-      for (const handler of handlers) {
-        handler.call(this, event)
-      }
+    const attributeHandler =
+      type === 'open'
+        ? this.onopen
+        : type === 'message'
+          ? this.onmessage
+          : type === 'error'
+            ? this.onerror
+            : null
+    attributeHandler?.call(this, event)
+
+    const handlers = this.handlers.get(type) ?? []
+    for (const handler of handlers) {
+      handler.call(this, event)
     }
   }
 
   close() {
     this.readyState = ExpoEventSource.CLOSED
-    if (this.abortController) {
-      this.abortController.abort()
-    }
+    if (this.reconnectionTimeout) clearTimeout(this.reconnectionTimeout)
+    this.reconnectionTimeout = null
+    this.abortController?.abort()
   }
 }
