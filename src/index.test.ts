@@ -21,6 +21,7 @@ function createMockStream() {
     stream,
     enqueue: (text: string) => controller.enqueue(encoder.encode(text)),
     close: () => controller.close(),
+    error: (err: Error) => controller.error(err),
   }
 }
 
@@ -240,14 +241,17 @@ describe('expoEventSource', () => {
     })
   })
 
-  test('handles "retry" field', async () => {
+  test('uses the "retry" field as the reconnection delay without dropping the stream', async () => {
     const es = new ExpoEventSource('http://test.com')
 
-    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
+    await vi.waitFor(() => expect(es.readyState).toBe(1))
 
-    mockStream.enqueue('retry: 5000\n\n')
+    mockStream.enqueue('retry: 1000\n\n')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
 
-    // @ts-expect-error accessing private field for testing
-    await es.connect()
+    mockStream.error(new Error('Network Error'))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 })

@@ -29,6 +29,7 @@ export class ExpoEventSource {
   private handlers = new Map<string, Set<(event: MessageEvent) => void>>()
   private decoder = new TextDecoder()
   private reconnectionTimeout: number | null = null
+  private reconnectionDelay = 5000
   private opts: EventSourceOptions | undefined
 
   private currentEventData: string[] = []
@@ -119,7 +120,7 @@ export class ExpoEventSource {
       if (this.readyState !== ExpoEventSource.CLOSED) {
         this.readyState = ExpoEventSource.CONNECTING
         this.dispatchEvent('error', { type: 'error', data: (err as Error).message })
-        this.scheduleReconnectionAfter(5000)
+        this.scheduleReconnectionAfter(this.reconnectionDelay)
       }
     }
   }
@@ -170,10 +171,7 @@ export class ExpoEventSource {
           break
         }
         case 'retry': {
-          const retry = Number.parseInt(value)
-          if (!Number.isNaN(retry)) {
-            this.scheduleReconnectionAfter(retry)
-          }
+          if (/^\d+$/.test(value)) this.reconnectionDelay = Number(value)
           break
         }
       }
