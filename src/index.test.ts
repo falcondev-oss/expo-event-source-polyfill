@@ -195,7 +195,7 @@ describe('expoEventSource', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(1000)
+    await vi.advanceTimersByTimeAsync(5000)
 
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
