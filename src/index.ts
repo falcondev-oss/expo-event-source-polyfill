@@ -21,10 +21,7 @@ export class ExpoEventSource {
   static OPEN = 1
   static CLOSED = 2
 
-  url: string
-  readyState: number = ExpoEventSource.CONNECTING
   private abortController: AbortController | null = null
-  lastEventId: string | null = null
   private cache = ''
   private handlers = new Map<string, Set<(event: MessageEvent) => void>>()
   private decoder = new TextDecoder()
@@ -34,6 +31,10 @@ export class ExpoEventSource {
 
   private currentEventData: string[] = []
   private currentEventType = 'message'
+
+  url: string
+  readyState: number = ExpoEventSource.CONNECTING
+  lastEventId: string | null = null
 
   constructor(url: string, opts?: EventSourceOptions) {
     this.url = url

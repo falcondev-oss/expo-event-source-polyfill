@@ -53,12 +53,12 @@ describe('expoEventSource', () => {
   })
 
   test('connects and sets readyState to OPEN', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onOpen = vi.fn()
     es.addEventListener('open', onOpen)
 
     await vi.waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith('http://test.com', expect.anything())
+      expect(mockFetch).toHaveBeenCalledWith('https://test.com', expect.anything())
     })
 
     mockStream.enqueue(':ok\n\n')
@@ -70,7 +70,7 @@ describe('expoEventSource', () => {
   })
 
   test('parses a simple data message', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
@@ -83,14 +83,14 @@ describe('expoEventSource', () => {
         expect.objectContaining({
           type: 'message',
           data: 'hello world',
-          origin: 'http://test.com',
+          origin: 'https://test.com',
         }),
       )
     })
   })
 
   test('handles packet fragmentation (The "broken device" fix)', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
@@ -110,7 +110,7 @@ describe('expoEventSource', () => {
   })
 
   test('handles multi-line data', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
@@ -129,7 +129,7 @@ describe('expoEventSource', () => {
   })
 
   test('handles custom event types', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onCustom = vi.fn()
     es.addEventListener('update', onCustom)
 
@@ -149,7 +149,7 @@ describe('expoEventSource', () => {
   })
 
   test('ignores comments (lines starting with :)', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onMessage = vi.fn()
     es.addEventListener('message', onMessage)
 
@@ -169,7 +169,7 @@ describe('expoEventSource', () => {
   })
 
   test('respects Last-Event-ID', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     await vi.waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
     mockStream.enqueue('id: 123\n')
@@ -190,7 +190,7 @@ describe('expoEventSource', () => {
       body: { getReader: () => mockStream.stream.getReader() },
     })
 
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onOpen = vi.fn()
     es.addEventListener('open', onOpen)
 
@@ -202,7 +202,7 @@ describe('expoEventSource', () => {
   })
 
   test('event type resets to "message" after data-less event (ping heartbeat)', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onMessage = vi.fn()
     const onPing = vi.fn()
     es.addEventListener('message', onMessage)
@@ -228,7 +228,7 @@ describe('expoEventSource', () => {
   })
 
   test('dispatches an event with an empty data line (tRPC ping)', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
     const onPing = vi.fn()
     es.addEventListener('ping', onPing)
 
@@ -242,7 +242,7 @@ describe('expoEventSource', () => {
   })
 
   test('uses the "retry" field as the reconnection delay without dropping the stream', async () => {
-    const es = new ExpoEventSource('http://test.com')
+    const es = new ExpoEventSource('https://test.com')
 
     await vi.waitFor(() => expect(es.readyState).toBe(1))
 
